@@ -24,6 +24,8 @@ connectDB()
     console.error("MONGODB connection failed: ", error);
 });
 
+export default app;
+
 
 /*
 ;( async ()=> {
