@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken"
 import { deleteCloudinaryImage } from "../utils/deleteCloudinaryFile.js";
 import { verificationMail } from "../Emails/register.email.js";
 import { forgetPasswordMail } from "../Emails/forgetPassword.email.js";
+import { AVATAR_PATH, COVER_IMAGE_PATH } from "../constants.js";
 
 const generateAccessAndRefreshToken = async (userid) => {
     try {
@@ -79,7 +80,16 @@ const registerUser = asyncHandler( async (req, res, next) => {
             if(checkForUsername){
                 throw new ApiError(400, "different user with this username, already exists");
             }
-            
+
+            if(user.avatar){
+                const publicId = user.avatar.split("/").pop().split(".")[0];
+                await deleteCloudinaryImage(AVATAR_PATH + publicId);
+            }
+            if(user.coverImage){
+                const publicId = user.coverImage.split("/").pop().split(".")[0];
+                await deleteCloudinaryImage(COVER_IMAGE_PATH + publicId);
+            }
+
             let avatarLocalPath;
             
             if(req.files && Array.isArray(req.files.avatar)){
@@ -96,7 +106,7 @@ const registerUser = asyncHandler( async (req, res, next) => {
             
             let avatarResponse;
             if(avatarLocalPath){
-                avatarResponse = await uploadOnCloudinary(avatarLocalPath);
+                avatarResponse = await uploadOnCloudinary(avatarLocalPath, "QNotes/user/avatar");
             }
             
             let coverImageResponse;
@@ -105,7 +115,7 @@ const registerUser = asyncHandler( async (req, res, next) => {
 
                 // console.log("coverImageLocalPath: ", coverImageLocalPath)
                 
-                coverImageResponse = await uploadOnCloudinary(coverImageLocalPath);
+                coverImageResponse = await uploadOnCloudinary(coverImageLocalPath, "QNotes/user/coverimage");
             }
             
             // console.log("coverImageResponse: ", coverImageResponse)
@@ -137,14 +147,14 @@ const registerUser = asyncHandler( async (req, res, next) => {
             
             let avatarResponse;
             if(avatarLocalPath){
-                avatarResponse = await uploadOnCloudinary(avatarLocalPath);
+                avatarResponse = await uploadOnCloudinary(avatarLocalPath, "QNotes/user/avatar");
             }
             
             let coverImageResponse;
 
             if(coverImageLocalPath){
                 
-                coverImageResponse = await uploadOnCloudinary(coverImageLocalPath);
+                coverImageResponse = await uploadOnCloudinary(coverImageLocalPath, "QNotes/user/coverimage");
             }
                        
             const user = await User.create({
@@ -586,7 +596,7 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Avatar file is missing");
     }
 
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    const avatar = await uploadOnCloudinary(avatarLocalPath, "QNotes/user/avatar");
 
     if(!avatar.url){
         throw new ApiError(400, "avatar uploading failed");
@@ -596,15 +606,9 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
 
     if(oldUser.avatar){
         // http://res.cloudinary.com/cac-backend-project/image/upload/v12344/abcd.jpg // abcd is public id
-        let imagePublicId = oldUser?.avatar.split("/")
-        // console.log(imagePublicId);
-        // console.log(imagePublicId.length);
-        imagePublicId = imagePublicId[imagePublicId.length - 1];
-        // console.log(imagePublicId);
-        imagePublicId = imagePublicId.split(".")[0];
-        // console.log(imagePublicId);
+        const imagePublicId = oldUser.avatar.split("/").pop().split(".")[0];
 
-        await deleteCloudinaryImage(imagePublicId)
+        await deleteCloudinaryImage(AVATAR_PATH + imagePublicId)
     }
 
     const user = await User.findByIdAndUpdate(
@@ -632,7 +636,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
         throw new ApiError(400, "Cover Image file is missing");
     }
 
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath, "QNotes/user/coverimage");
 
     if(!coverImage.url){
         throw new ApiError(400, "Cover Image uploading failed");
@@ -646,8 +650,8 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
         imagePublicId = imagePublicId[imagePublicId.length - 1];
         imagePublicId = imagePublicId.split(".");
         imagePublicId = imagePublicId[0];
-        
-        await deleteCloudinaryImage(imagePublicId);
+
+        await deleteCloudinaryImage(COVER_IMAGE_PATH + imagePublicId);
     }
 
     const user = await User.findByIdAndUpdate(
@@ -668,7 +672,7 @@ const updateUserCoverImage = asyncHandler( async (req, res) => {
 
 });
 
-const removeCoverImage = asyncHandler( async (req, res) => {
+const removeCoverImage = asyncHandler( async (req, res, next) => {
     const user = await User.findById(req.user?._id);
 
     if(user.coverImage){
@@ -677,9 +681,9 @@ const removeCoverImage = asyncHandler( async (req, res) => {
                     imagePublicId = imagePublicId[imagePublicId.length - 1];
                     imagePublicId = imagePublicId.split(".");
                     imagePublicId = imagePublicId[0];
-            
-                    await deleteCloudinaryImage(imagePublicId);
-            
+
+                    await deleteCloudinaryImage(COVER_IMAGE_PATH + imagePublicId);
+
                     user.coverImage = undefined;
             
                     await user.save();
@@ -688,7 +692,8 @@ const removeCoverImage = asyncHandler( async (req, res) => {
                         new ApiResponse(200, "", "cover image removed successfully")
                     );
         } catch (error) {
-            throw new ApiError(500, "something went wrong while removing cover image")
+            // throw new ApiError(500, "something went wrong while removing cover image")
+            next(error);
         }
     }
 
@@ -705,7 +710,9 @@ const removeAvatarImage = asyncHandler( async (req, res) => {
                     imagePublicId = imagePublicId.split(".");
                     imagePublicId = imagePublicId[0];
             
-                    await deleteCloudinaryImage(imagePublicId);
+                    // console.log("imagePublicId: ", imagePublicId)
+                    imagePublicId = AVATAR_PATH + imagePublicId;
+                    console.log(await deleteCloudinaryImage(imagePublicId));
 
                     user.avatar = undefined;
 

@@ -9,6 +9,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import fs from "fs/promises"
+import { AUDIO_PATH } from "../constants.js";
 
 // create Note
 const createNote = asyncHandler( async (req, res) => {
@@ -29,7 +30,7 @@ const createNote = asyncHandler( async (req, res) => {
             await reduceAudio(filePath, outputPath).catch(error => {
                 throw new ApiError(400, error);
             }).then(async () => {
-                response = await uploadOnCloudinary(outputPath, false);
+                response = await uploadOnCloudinary(outputPath, AUDIO_PATH,  false);
                 if(!response?.url){
                     throw new ApiError(400, "note upload failed");
                 }
@@ -515,7 +516,7 @@ const deleteNote = asyncHandler( async (req, res) => {
     
     let publicId = note.url.split("/").pop().split(".")[0];
 
-    await deleteCloudinaryVideo(publicId)
+    await deleteCloudinaryVideo(AUDIO_PATH + publicId)
 
     await User.findByIdAndUpdate(
         req.user._id,
