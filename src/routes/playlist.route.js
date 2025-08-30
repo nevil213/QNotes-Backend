@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { addNote, createPlaylist, deletePlaylist, getNotesByPlaylistId, getPlaylistByUsername, getPlaylistsByUser, removeNote, updatePlaylistInfo } from "../controllers/playlist.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { getUserPlaylists } from "../../../Learn Backend with js/Project/src/controllers/playlist.controller.js";
 
 const router = Router();
 

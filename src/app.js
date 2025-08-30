@@ -23,8 +23,14 @@ app.use(express.urlencoded({extended: true, limit: "16kb"}));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-
-
+// Add a root route handler
+app.get("/", (req, res) => {
+    res.status(200).json({
+        status: "success",
+        message: "Welcome to QNotes API - Audio to Notes AI Service",
+        apiDocsPath: "/api/v1"
+    });
+});
 
 // import routes
 import userRoute from "./routes/user.route.js"
