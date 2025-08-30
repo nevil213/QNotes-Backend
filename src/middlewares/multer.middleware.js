@@ -1,15 +1,23 @@
 import multer from "multer";
 
+// Use memory storage instead of disk storage for Vercel compatibility
+const storage = multer.memoryStorage();
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, './public/temp')
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now()
-    // console.log("file: ", file);
-    cb(null, file.originalname.split(".")[0] + '-' + uniqueSuffix + '.' + file.originalname.split(".")[1]);
+// Configure file size limits to prevent abuse
+const fileFilter = (req, file, cb) => {
+  // Accept audio files and images
+  if (file.mimetype.startsWith('audio/') || 
+      file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Unsupported file format'), false);
   }
-})
+};
 
-export const upload = multer({ storage })
+export const upload = multer({ 
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max file size
+  }
+});

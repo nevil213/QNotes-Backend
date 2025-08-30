@@ -161,6 +161,8 @@ const registerUser = asyncHandler( async (req, res, next) => {
                 username: username.toLowerCase(),
                 email: email.toLowerCase(),
                 password,
+                otp,
+                otpExpiry,
                 avatar: avatarResponse?.url || "",
                 coverImage: coverImageResponse?.url || "",
                 fullname
