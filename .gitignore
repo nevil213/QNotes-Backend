@@ -36,6 +36,12 @@ temp
 # Uploaded files (that should be stored on cloud services, not in git)
 uploads
 public/tmp
+# Jest test files and config
+tests/
+*.test.js
+*.spec.js
+jest.config.js
+jest.config.ts
 
 # OS generated files
 .DS_Store
