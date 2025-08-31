@@ -86,8 +86,8 @@ const registerUser = asyncHandler( async (req, res, next) => {
 
             let avatarBuffer;
 
-            console.log(req.files)
-            console.log(req.files.avatar)
+            // console.log(req.files)
+            // console.log(req.files.avatar)
             
             if(req.files && Array.isArray(req.files.avatar)){
                 avatarBuffer = await req.files.avatar[0].buffer;

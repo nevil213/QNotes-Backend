@@ -79,7 +79,7 @@ const createNote = asyncHandler( async (req, res) => {
             if(!notesResult || !notesResult.choices || notesResult.choices.length === 0){
                 throw new ApiError(400, "notes generation failed");
             }
-            console.log(notesResult.choices[0].message);
+            // console.log(notesResult.choices[0].message);
             
             const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
@@ -97,7 +97,7 @@ const createNote = asyncHandler( async (req, res) => {
             
             const titleDescriptionResult = await titleDescriptionResponse.json();
             
-            console.log(titleDescriptionResult.choices[0].message.content);
+            // console.log(titleDescriptionResult.choices[0].message.content);
             
             let title;
             let description;
