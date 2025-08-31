@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import fs from "fs";
-
+import streamifier from 'streamifier';
 
 cloudinary.config({ 
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME, 
@@ -8,19 +8,29 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadOnCloudinary = async function (localFilePath, path = "QNotes", shouldDelete = true) {
+const uploadOnCloudinary = async function (buffer, path = "QNotes", shouldDelete = true) {
 
     try {
 
-        if(!localFilePath) return null;
+        if(!buffer) return null;
+        // console.log("buffer:", buffer);
 
-        const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto", folder: path
+        const response = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { resource_type: "auto", folder: path },
+                (error, result) => {
+                    if (error){
+                        console.log("Cloudinary upload error:", error);
+                        return reject(error);
+                    }
+                    resolve(result);
+                }
+            );
+            // console.log("uploadStream:", uploadStream);
+            streamifier.createReadStream(buffer).pipe(uploadStream);
         });
         
         // console.log("file uploaded successfully", response.url);
-
-        if(shouldDelete) fs.unlinkSync(localFilePath);
 
         // console.log("cloudinary response:", response);
 
@@ -28,7 +38,7 @@ const uploadOnCloudinary = async function (localFilePath, path = "QNotes", shoul
 
     } catch (error) {
         // console.log(error)
-        fs.unlinkSync(localFilePath); //remove file from local
+        // fs.unlinkSync(localFilePath); //remove file from local
         return null;
     }
 }

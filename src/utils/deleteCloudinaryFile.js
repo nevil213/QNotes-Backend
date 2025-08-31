@@ -17,13 +17,15 @@ export const deleteCloudinaryImage = async function (public_id) {
     
     // NOTE:  we are not checking whether user is authorized to delete cloudinary image or not!!   ==> will not give direct ability to user to delete with imageid
 
-    await cloudinary.uploader.destroy(public_id).then(() => {
-        // console.log("cloudinary image deleted successfully");
-        return new ApiResponse(200, "", "cloudinary image deleted successfully");
-    }).catch((error) => {
-        console.log(error)
+    try {
+        await cloudinary.uploader.destroy(public_id, {resource_type: 'image'});
+            // console.log("cloudinary image deleted successfully");
+            return new ApiResponse(200, "", "cloudinary image deleted successfully");
+        }
+    catch (error) {
+        // console.log(error)
         throw new ApiError(400, "something went wrong while deleting cloudinary image");
-    });
+    }
 }
 
 
@@ -33,11 +35,11 @@ export const deleteCloudinaryVideo = async function (public_id) {  // same for a
         throw new ApiError(404, "public id of video not found")
     }
 
-    await cloudinary.uploader.destroy(public_id, {resource_type: 'video'}).then(() => {
-        // console.log("cloudinary image deleted successfully");
+    try {
+        await cloudinary.uploader.destroy(public_id, {resource_type: 'video'});
         return new ApiResponse(200, "", "cloudinary video deleted successfully");
-    }).catch((error) => {
-        console.log(error)
+    } catch (error) {
+        // console.log(error)
         throw new ApiError(400, "something went wrong while deleting cloudinary video");
-    });
+    }
 }

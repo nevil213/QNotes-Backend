@@ -2,6 +2,10 @@
 
 QNotes is an innovative note-taking application that leverages artificial intelligence to convert audio recordings into well-structured notes. Save time and enhance productivity by automatically transforming your spoken content into written format.
 
+## 🔗 Project Links
+- **GitHub Repository**: [github.com/nevil213/QNotes-Backend](https://github.com/nevil213/QNotes-Backend)
+- **Live Demo**: [q-notes-backend.vercel.app](https://q-notes-backend.vercel.app/)
+
 ## ✨ Key Features
 
 - **AI-Powered Audio Transcription**: Convert spoken content into written notes automatically
@@ -13,11 +17,20 @@ QNotes is an innovative note-taking application that leverages artificial intell
 
 ## 🛠️ Technologies Used
 
-- **Backend**: Node.js, Express.js
-- **Database**: MongoDB
-- **Authentication**: JWT (JSON Web Tokens)
-- **API**: RESTful API design
-- **AI Processing**: Advanced speech-to-text algorithms
+- **Backend Framework**: Node.js with Express.js 5.x
+- **Database**: MongoDB 6.x with Mongoose ODM
+- **Authentication**: JWT with access & refresh token strategy
+- **File Processing**: 
+  - Multer for file uploads (memory storage)
+  - Cloudinary for cloud storage
+  - Fluent-FFmpeg for audio processing
+- **API Security**: 
+  - CORS protection
+  - HTTP-only cookies
+  - bcrypt for password hashing
+- **Email Services**: Nodemailer 7.x for verification & password resets
+- **AI Integration**: Groq API for speech-to-text transcription
+- **Development**: Nodemon for hot-reloading
 
 ## 📋 Prerequisites
 
@@ -29,7 +42,7 @@ QNotes is an innovative note-taking application that leverages artificial intell
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/qnotes.git
+   git clone https://github.com/nevil213/qnotes.git
    cd qnotes
    ```
 

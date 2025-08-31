@@ -592,13 +592,15 @@ try {
 } ) 
 
 const updateUserAvatar = asyncHandler( async (req, res) => {
-    const avatarLocalPath = req.file?.path;
+    const avatarBuffer = req.file?.buffer;
 
-    if(!avatarLocalPath){
+    // console.log(req.file);
+
+    if(!avatarBuffer){
         throw new ApiError(400, "Avatar file is missing");
     }
 
-    const avatar = await uploadOnCloudinary(avatarLocalPath, "QNotes/user/avatar");
+    const avatar = await uploadOnCloudinary(avatarBuffer, "QNotes/user/avatar");
 
     if(!avatar.url){
         throw new ApiError(400, "avatar uploading failed");
@@ -714,7 +716,7 @@ const removeAvatarImage = asyncHandler( async (req, res) => {
             
                     // console.log("imagePublicId: ", imagePublicId)
                     imagePublicId = AVATAR_PATH + imagePublicId;
-                    console.log(await deleteCloudinaryImage(imagePublicId));
+                    await deleteCloudinaryImage(imagePublicId);
 
                     user.avatar = undefined;
 
