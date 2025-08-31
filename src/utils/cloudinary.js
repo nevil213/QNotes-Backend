@@ -1,5 +1,4 @@
 import { v2 as cloudinary } from 'cloudinary';
-import fs from "fs";
 import streamifier from 'streamifier';
 
 cloudinary.config({ 
@@ -8,7 +7,7 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-const uploadOnCloudinary = async function (buffer, path = "QNotes", shouldDelete = true) {
+const uploadOnCloudinary = async function (buffer, path = "QNotes") {
 
     try {
 
@@ -37,8 +36,7 @@ const uploadOnCloudinary = async function (buffer, path = "QNotes", shouldDelete
         return response;
 
     } catch (error) {
-        // console.log(error)
-        // fs.unlinkSync(localFilePath); //remove file from local
+        // console.log(error)W
         return null;
     }
 }

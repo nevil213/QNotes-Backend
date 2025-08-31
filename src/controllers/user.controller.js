@@ -3,7 +3,6 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import fs from "fs/promises"
 import jwt from "jsonwebtoken"
 import { deleteCloudinaryImage } from "../utils/deleteCloudinaryFile.js";
 import { verificationMail } from "../Emails/register.email.js";
@@ -65,11 +64,6 @@ const registerUser = asyncHandler( async (req, res, next) => {
             throw new ApiError(400, "user with this email already exist");
         }
         else{
-            // const avatarLocalPath = req.files?.avatar[0]?.path;
-            // const coverImageLocalPath = req.files?.coverImage[0]?.path;
-            
-            // console.log("req.files: ", req.files);
-
             
             let checkForUsername = await User.findOne({
                 username,
@@ -90,32 +84,35 @@ const registerUser = asyncHandler( async (req, res, next) => {
                 await deleteCloudinaryImage(COVER_IMAGE_PATH + publicId);
             }
 
-            let avatarLocalPath;
+            let avatarBuffer;
+
+            console.log(req.files)
+            console.log(req.files.avatar)
             
             if(req.files && Array.isArray(req.files.avatar)){
-                avatarLocalPath = req.files.avatar[0].path;
+                avatarBuffer = await req.files.avatar[0].buffer;
             }
-            
-            let coverImageLocalPath;
-            
+
+            let coverImageBuffer;
+
             // console.log(req.files?.coverImage[0]?.legth)
             
             if(req.files && Array.isArray(req.files.coverImage)){
-                coverImageLocalPath = req.files.coverImage[0].path;
+                coverImageBuffer = await req.files.coverImage[0].buffer;
             }
             
             let avatarResponse;
-            if(avatarLocalPath){
-                avatarResponse = await uploadOnCloudinary(avatarLocalPath, "QNotes/user/avatar");
+            if(avatarBuffer){
+                avatarResponse = await uploadOnCloudinary(avatarBuffer, "QNotes/user/avatar");
             }
             
             let coverImageResponse;
 
-            if(coverImageLocalPath){
+            if(coverImageBuffer){
 
                 // console.log("coverImageLocalPath: ", coverImageLocalPath)
                 
-                coverImageResponse = await uploadOnCloudinary(coverImageLocalPath, "QNotes/user/coverimage");
+                coverImageResponse = await uploadOnCloudinary(coverImageBuffer, "QNotes/user/coverimage");
             }
             
             // console.log("coverImageResponse: ", coverImageResponse)
@@ -133,6 +130,16 @@ const registerUser = asyncHandler( async (req, res, next) => {
         }
     }
     else{            
+
+                let checkForUsername = await User.findOne({
+                username,
+                email: {
+                    $ne: email
+                } });
+
+            if(checkForUsername){
+                throw new ApiError(400, "different user with this username, already exists");
+            }
             let avatarLocalPath;
             
             if(req.files && Array.isArray(req.files.avatar)){
@@ -194,9 +201,7 @@ const registerUser = asyncHandler( async (req, res, next) => {
     );
 
     } catch (error) {
-        
-        if(req.files && Array.isArray(req.files?.avatar) && fs.existsSync(req.files?.avatar[0]?.path)) fs.unlinkSync(req.files?.avatar[0]?.path);
-        if(req.files && Array.isArray(req.files?.coverImage) && fs.existsSync(req.files.coverImage[0]?.path)) fs.unlinkSync(req.files.coverImage[0].path);
+
         next(error);
     }
 })
@@ -889,48 +894,3 @@ const getWatchHistory = asyncHandler( async (req, res) => {
 
 
 export { registerUser, loginUser, logOutUser, refreshAccessToken, changeCurrentPassword, getCurrentUser, updateAccountDetails, updateUserAvatar, updateUserCoverImage, removeCoverImage, removeAvatarImage, getWatchHistory, verifyEmail, resendVerificationEmail, initiateForgetPassword, forgetPassword };
-
-// const processAudio = asyncHandler( async (req, res) => {  //create transcript
-    
-//     // const { cloudinaryPath } = req.body;
-
-//     // const audioFile = await fetch(cloudinaryPath);
-
-
-//     const audioFilePath = req.file.path;
-//     const fs = await import('fs/promises');
-//     const audioBuffer = await fs.readFile(audioFilePath);
-//     const audioBlob = new Blob([audioBuffer], { type: "audio/mp3" });
-
-//     // if(!audioFile.ok) {
-//     //     throw new ApiError(400, "failed to fetch audio file");
-//     // }
-
-//     // const audioBlob = await audioFile.blob();
-
-//     // console.log(cloudinaryPath)
-
-//     const formData = new FormData();
-//     formData.append("file", audioBlob, "audio.mp3");
-//     formData.append("model", "whisper-large-v3-turbo");
-
-//     const response = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-//         method: "POST",
-//         headers: {
-//             "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-//         },
-//         body: formData
-//     });
-
-//     // console.log(response)
-
-//     const result = await response.json();
-
-//     if(result && result.text){
-//         return res.status(201).json(
-//             new ApiResponse(201, result.text, "audio proccessed successfully")
-//         )
-//     }
-//     throw new ApiError(500, "something went wrong while proccessing audio")
-
-// })

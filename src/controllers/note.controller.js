@@ -1,5 +1,5 @@
 import { Note } from "../models/note.model.js";
-import { reduceAudio } from "../utils/reduceAudio.js";
+import { reduceAudioBuffer } from "../utils/reduceAudio.js";
 import mongoose from "mongoose";
 import Transcript from "../models/transcript.model.js";
 import { deleteCloudinaryVideo } from "../utils/deleteCloudinaryFile.js";
@@ -8,7 +8,6 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
-import fs from "fs/promises"
 import { AUDIO_PATH } from "../constants.js";
 
 // create Note
@@ -19,34 +18,26 @@ const createNote = asyncHandler( async (req, res) => {
         
         if(req.file) {
             
-            const filePath = req.file.path;
-            const outputPath = `${filePath.split(".")[0]}_reduced.mp3`;
-            
-            // console.log("IP", filePath)
-            // console.log("OP", outputPath)
-            
-            let response;
-            
-            await reduceAudio(filePath, outputPath).catch(error => {
-                throw new ApiError(400, error);
-            }).then(async () => {
-                response = await uploadOnCloudinary(outputPath, AUDIO_PATH,  false);
-                if(!response?.url){
-                    throw new ApiError(400, "note upload failed");
-                }
-            });
-            
-            if(!response?.url){
-                throw new ApiError(400, "note upload failed");
+            const inputBuffer = req.file.buffer;
+
+            let processedBuffer;
+            try {
+            processedBuffer = await reduceAudioBuffer(inputBuffer);
+            } catch (error) {
+                throw new ApiError(400, error.message);
+            }
+
+            if(!processedBuffer) {
+                throw new ApiError(400, 'Audio processing failed');
+            }
+
+            const response = await uploadOnCloudinary(processedBuffer, AUDIO_PATH);
+            if (!response?.url) {
+                throw new ApiError(400, 'Note upload failed');
             }
             
             
-            const noteFilePath = outputPath;
-            // const fs = await import('fs/promises');
-            const noteBuffer = await fs.readFile(noteFilePath);
-            const noteBlob = new Blob([noteBuffer], { type: "audio/mp3" });
-
-            await fs.unlink(noteFilePath);
+            const noteBlob = new Blob([processedBuffer], { type: "audio/mp3" });
             
             const formData = new FormData();
             formData.append("file", noteBlob, "note.mp3");
