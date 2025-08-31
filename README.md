@@ -4,7 +4,8 @@ QNotes is an innovative note-taking application that leverages artificial intell
 
 ## 🔗 Project Links
 - **GitHub Repository**: [github.com/nevil213/QNotes-Backend](https://github.com/nevil213/QNotes-Backend)
-- **Live Demo**: [q-notes-backend.vercel.app](https://q-notes-backend.vercel.app/)
+<!-- - **Live Demo**: [q-notes-backend.vercel.app](https://q-notes-backend.vercel.app/) -->
+- **Live Demo**: [qnotes-backend.onrender.com](https://qnotes-backend.onrender.com/)
 
 ## ✨ Key Features
 
