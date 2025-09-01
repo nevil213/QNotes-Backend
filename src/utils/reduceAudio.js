@@ -1,6 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg';
 import streamifier from 'streamifier';
-import getStream from 'get-stream';
 
 export async function reduceAudioBuffer(inputBuffer, options = {}) {
   const {

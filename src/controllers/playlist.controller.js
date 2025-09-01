@@ -59,7 +59,7 @@ const addNote = asyncHandler( async (req, res, next) => {
             $or: [{isPublic: true}, {owner: req.user.id}]
         });
 
-        if(!note){
+        if(!note || note.length === 0) {
             throw new  ApiError(400, "note not found")
         }
 
