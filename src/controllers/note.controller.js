@@ -160,7 +160,7 @@ const createNote = asyncHandler( async (req, res) => {
                     
                     const transcript = await Transcript.create({
                         noteId: note?._id,
-                        text: notesResult.choices[0].message.content
+                        text: result.text
                     });
                     
                     if(!transcript){
