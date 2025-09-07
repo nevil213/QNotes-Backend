@@ -282,7 +282,6 @@ const getNotesByPlaylistId = asyncHandler( async (req, res, next) => {
                                 //     }
                                 // },
                                 createdAt: 1,
-                                updatedAt: 1,
                                 // owner: {
                                 //     $arrayElemAt: ["$owner", 0]
                                 // }

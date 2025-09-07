@@ -306,7 +306,8 @@ const getNotes = asyncHandler( async (req, res) => {
                                         $eq: ['$$version.id', '$starredNoteId']
                                     }
                                 }
-                            }
+                            },
+                            createdAt: 1
                         }
                     },
                     {
@@ -406,6 +407,7 @@ const getAllNotesByUsername = asyncHandler( async (req, res) => {
                         $project: {
                             title: 1,
                             description: 1,
+                            createdAt: 1
                             // note: {       // we will dynamically fetch after user click on any single note with title..
                             //     $filter: {
                             //         input: 'noteVersions',
@@ -463,7 +465,8 @@ const getNoteById = asyncHandler(async (req, res) => {
                         as: 'version',
                         cond: ['$$version.id', '$starredNoteId']
                     }
-                }
+                },
+                createdAt: 1
             }
         },
         {
