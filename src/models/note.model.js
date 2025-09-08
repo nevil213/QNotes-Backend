@@ -24,7 +24,7 @@ const noteSchema = new Schema({
             type: String, //md file texts
             required: true
             },
-            id: {
+            _id: {
                 type: mongoose.Schema.Types.ObjectId,
                 required: true
             }

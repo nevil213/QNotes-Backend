@@ -277,7 +277,7 @@ const getNotesByPlaylistId = asyncHandler( async (req, res, next) => {
                                 //         input: "noteVersions",
                                 //         as: "version",
                                 //         cond: {
-                                //             $eq: ["$$version.id", "starredNoteId"]
+                                //             $eq: ["$$version._id", "starredNoteId"]
                                 //         }
                                 //     }
                                 // },

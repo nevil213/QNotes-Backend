@@ -67,7 +67,7 @@ const createNote = asyncHandler( async (req, res) => {
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
                     messages: [
-                        { "role": "system", "content": "You are a concise note-maker, you have the knowledge about the topic explained in the transcript and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in english which includes almost whole the transcript. no need of your wordings like <here is the note or something like that>" },
+                        { "role": "system", "content": "You are a concise note-maker, you have the knowledge about the topic explained in the transcript and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost whole the transcript. no need of your wordings like <here is the note or something like that>" },
                         { "role": "user", "content": result.text }
                     ]
                 })
@@ -138,7 +138,7 @@ const createNote = asyncHandler( async (req, res) => {
                     
                     // console.log(title, description, response?.url);
 
-                    const id = new mongoose.Types.ObjectId()
+                    const _id = new mongoose.Types.ObjectId()
                     
                     const note = await Note.create({
                         owner: userId,
@@ -148,10 +148,10 @@ const createNote = asyncHandler( async (req, res) => {
                         noteVersions: [
                             {
                                 content: notesResult.choices[0].message.content,
-                                id
+                                _id
                             }
                         ],
-                        starredNoteId: id
+                        starredNoteId: _id
                     });
                     
                     if(!note){
@@ -222,7 +222,9 @@ const starNoteVersion = asyncHandler ( async ( req, res ) => {
         throw new ApiError(403, "You are not authorized to star this note");
     }
 
-    if(!note.noteVersions.some(version => version.id.equals(noteVersionId))){
+    // note.noteVersions.map(version => console.log(version._id, noteVersionId, version._id.equals(noteVersionId)))
+
+    if(!note.noteVersions.some(version => version._id.equals(noteVersionId))){
         throw new ApiError(404, "Note version not found");
     }
 
@@ -232,6 +234,28 @@ const starNoteVersion = asyncHandler ( async ( req, res ) => {
 
     return res.status(200).json(
         new ApiResponse(200, "", "note starred successfully")
+    );
+})
+
+const getNoteVersions = asyncHandler (async (req, res) => {
+    const { noteId } = req.params;
+
+    if(!noteId){
+        throw new ApiError(400, "noteId is required");
+    }
+
+    const note = await Note.findById(noteId);
+
+    if(!note){
+        throw new ApiError(404, "Note not found");
+    }
+
+    if(!note.owner.equals(req.user._id)){
+        throw new ApiError(403, "You are not authorized to view this note");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, {versions: note.noteVersions, starredVersionId: note.starredNoteId, createdAt: note.createdAt}, "note versions fetched successfully")
     );
 })
 
@@ -303,7 +327,7 @@ const getNotes = asyncHandler( async (req, res) => {
                                     input: '$noteVersions',
                                     as: 'version',
                                     cond: {
-                                        $eq: ['$$version.id', '$starredNoteId']
+                                        $eq: ['$$version._id', '$starredNoteId']
                                     }
                                 }
                             },
@@ -377,7 +401,7 @@ const getAllNotesByUsername = asyncHandler( async (req, res) => {
     //                     input: 'noteVersions',
     //                     as: 'version',
     //                     cond: {
-    //                         $eq: ['$$version.id', '$starredNoteId']
+    //                         $eq: ['$$version._id', '$starredNoteId']
     //                     }
     //                 }
     //             }
@@ -413,7 +437,7 @@ const getAllNotesByUsername = asyncHandler( async (req, res) => {
                             //         input: 'noteVersions',
                             //         as: 'version',
                             //         cond: {
-                            //             $eq: ['$$version.id', '$starredNoteId']
+                            //             $eq: ['$$version._id', '$starredNoteId']
                             //         }
                             //     }
                             // }
@@ -463,7 +487,7 @@ const getNoteById = asyncHandler(async (req, res) => {
                     $filter: {
                         input: '$noteVersions',
                         as: 'version',
-                        cond: ['$$version.id', '$starredNoteId']
+                        cond: ['$$version._id', '$starredNoteId']
                     }
                 },
                 createdAt: 1
@@ -557,7 +581,7 @@ const createNewVersionNote = asyncHandler( async (req, res) => {
         body: JSON.stringify({
             model: "llama-3.3-70b-versatile",
             messages: [
-                { "role": "system", "content": `You are a concise note-maker, you have the knowledge about the ${title} regarding ${description} and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in english which includes almost the whole transcript. no need of your wordings like <here is the note or something like that>` },
+                { "role": "system", "content": `You are a concise note-maker, you have the knowledge about the ${title} regarding ${description} and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost the whole transcript. no need of your wordings like <here is the note or something like that>` },
                 { "role": "user", "content": transcript.text }
             ]
         })
@@ -615,7 +639,7 @@ const deleteNoteVersion = asyncHandler( async (req, res) => {
         throw new ApiError(400, "You cannot delete a starred note. Please star other note first.");
     }
 
-    if(!note.noteVersions.some(version => version.id.equals(noteVersionId))){
+    if(!note.noteVersions.some(version => version._id.equals(noteVersionId))){
         throw new ApiError(404, "Note version not found");
     }
 
@@ -628,9 +652,223 @@ const deleteNoteVersion = asyncHandler( async (req, res) => {
     );
 })
 
+const getPublicNotes = asyncHandler(async (req, res) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const sortBy = req.query.sortBy || 'newest';
+    const filterBy = req.query.filterBy || 'all';
+    const search = req.query.search || '';
+
+    console.log("search", search)
+    
+    const skip = (page - 1) * limit;
+    
+    if (page < 1) {
+        throw new ApiError(400, "Page number must be greater than 0");
+    }
+    
+    if (limit < 1 || limit > 100) {
+        throw new ApiError(400, "Limit must be between 1 and 100");
+    }
+
+    let filterQuery = { isPublic: true };
+    
+    if (search) {
+        filterQuery.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } }
+        ];
+    }
+    
+    if (filterBy !== 'all') {
+        const now = new Date();
+        let dateFilter;
+        
+        switch (filterBy) {
+            case 'today':
+                dateFilter = new Date(now.setHours(0, 0, 0, 0));
+                break;
+            case 'week':
+                dateFilter = new Date(now.setDate(now.getDate() - 7));
+                break;
+            case 'month':
+                dateFilter = new Date(now.setDate(now.getDate() - 30));
+                break;
+        }
+        
+        if (dateFilter) {
+            filterQuery.createdAt = { $gte: dateFilter };
+        }
+    }
+
+    let sortQuery = {};
+    
+    switch (sortBy) {
+        case 'newest':
+            sortQuery = { createdAt: -1 };
+            break;
+        case 'most-clapped':
+            sortQuery = { totalClaps: -1, createdAt: -1 };
+            break;
+        case 'trending':
+            break;
+        default:
+            sortQuery = { createdAt: -1 };
+    }
+
+    const aggregationPipeline = [
+        { $match: filterQuery },
+    ];
+
+    if (sortBy === 'trending') {
+        aggregationPipeline.push({
+            $addFields: {
+                trendingScore: {
+                    $add: [
+                        {
+                            $multiply: [
+                                {
+                                    $divide: [
+                                        { $subtract: [new Date(), "$createdAt"] },
+                                        1000 * 60 * 60 * 24
+                                    ]
+                                },
+                                -1
+                            ]
+                        },
+                        { $multiply: [{ $ifNull: ["$totalClaps", 0] }, 0.1] }
+                    ]
+                }
+            }
+        });
+    }
+
+    aggregationPipeline.push({
+        $lookup: {
+            from: "users",
+            localField: "owner",
+            foreignField: "_id",
+            as: "author"
+        }
+    });
+
+    aggregationPipeline.push({
+        $lookup: {
+            from: "claps",
+            localField: "_id",
+            foreignField: "noteId",
+            as: "claps"
+        }
+    });
+
+    aggregationPipeline.push({
+        $addFields: {
+            totalClaps: { $sum: "$claps.claps" }
+        }
+    });
+
+    if (sortBy === 'trending') {
+        aggregationPipeline.push({
+            $addFields: {
+                trendingScore: {
+                    $add: [
+                        {
+                            $multiply: [
+                                {
+                                    $divide: [
+                                        { $subtract: [new Date(), "$createdAt"] },
+                                        1000 * 60 * 60 * 24
+                                    ]
+                                },
+                                -1
+                            ]
+                        },
+                        { $multiply: ["$totalClaps", 0.1] }
+                    ]
+                }
+            }
+        });
+    }
+
+    if (sortBy === 'trending') {
+        aggregationPipeline.push({ $sort: { trendingScore: 1 } });
+    } else {
+        aggregationPipeline.push({ $sort: sortQuery });
+    }
+
+    aggregationPipeline.push({
+        $project: {
+            title: 1,
+            description: 1,
+            createdAt: 1,
+            totalClaps: 1,
+            tags: 1,
+            isPublic: 1,
+            author: {
+                $arrayElemAt: [
+                    {
+                        $map: {
+                            input: "$author",
+                            as: "user",
+                            in: {
+                                _id: "$$user._id",
+                                fullname: "$$user.fullname",
+                                username: "$$user.username",
+                                avatar: "$$user.avatar"
+                            }
+                        }
+                    },
+                    0
+                ]
+            }
+        }
+    });
+
+    aggregationPipeline.push({ $skip: skip }, { $limit: limit });
+
+    const notes = await Note.aggregate(aggregationPipeline);
+    
+    const countPipeline = [
+        { $match: filterQuery },
+        { $count: "total" }
+    ];
+    const countResult = await Note.aggregate(countPipeline);
+    const totalNotes = countResult[0]?.total || 0;
+
+    const totalPages = Math.ceil(totalNotes / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+    const hasMore = hasNextPage;
+
+    const response = {
+        notes,
+        pagination: {
+            currentPage: page,
+            totalPages,
+            totalNotes,
+            notesPerPage: limit,
+            hasNextPage,
+            hasPrevPage,
+            nextPage: hasNextPage ? page + 1 : null,
+            prevPage: hasPrevPage ? page - 1 : null
+        },
+        hasMore,
+        filters: {
+            sortBy,
+            filterBy,
+            search
+        }
+    };
+
+    return res.status(200).json(
+        new ApiResponse(200, response, "Public notes fetched successfully")
+    );
+});
+
 
 export {
     createNote,
+    getNoteVersions,
     starNoteVersion,
     getNotes,
     deleteNote,
@@ -638,5 +876,6 @@ export {
     deleteNoteVersion,
     getAllNotesByUsername,
     getNoteById,
-    updateNoteInfo
+    updateNoteInfo,
+    getPublicNotes
 }

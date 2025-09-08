@@ -8,7 +8,9 @@ import { createNote,
     deleteNoteVersion,
     updateNoteInfo,
     getNoteById,
-    getAllNotesByUsername} from "../controllers/note.controller.js";
+    getAllNotesByUsername,
+    getNoteVersions,
+    getPublicNotes} from "../controllers/note.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
@@ -30,6 +32,8 @@ router.route("/create-note").post(
     upload.single("audio"),
     createNote)
 
+router.route("/get-note-versions/:noteId").get(verifyJWT, getNoteVersions);
+
 router.route("/star-note/:noteId/:noteVersionId").patch(verifyJWT, starNoteVersion);
 
 router.route("/delete-note/:noteId").delete(verifyJWT, deleteNote);
@@ -48,6 +52,8 @@ router.route("/u/:username").get(getAllNotesByUsername);
 router.route("/n/:noteId").get(customverifyJWT, getNoteById);
 
 router.route("/update-noteinfo/:noteId").patch(verifyJWT, updateNoteInfo);
+
+router.route("/public-notes").get(getPublicNotes);
 
 
 
