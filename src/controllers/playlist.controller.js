@@ -46,7 +46,7 @@ const addNote = asyncHandler( async (req, res, next) => {
             throw new ApiError(404, "Playlist not found");
         }
 
-        if(!playlist.owner.equals(req.user.id)) {
+        if(!playlist.owner.equals(req.user._id)) {
             throw new ApiError(403, "You are not authorized to add notes to this playlist");
         }
 
@@ -56,7 +56,7 @@ const addNote = asyncHandler( async (req, res, next) => {
 
         const note = await Note.find({
             _id: noteId,
-            $or: [{isPublic: true}, {owner: req.user.id}]
+            $or: [{isPublic: true}, {owner: req.user._id}]
         });
 
         if(!note || note.length === 0) {
@@ -89,7 +89,7 @@ const updatePlaylistInfo = asyncHandler( async (req, res, next) => {
             throw new ApiError(404, "Playlist not found");
         }
 
-        if (!playlist.owner.equals(req.user.id)) {
+        if (!playlist.owner.equals(req.user._id)) {
             throw new ApiError(403, "You are not authorized to update this playlist");
         }
 
@@ -116,7 +116,7 @@ const deletePlaylist = asyncHandler( async (req, res, next) => {
             throw new ApiError(404, "Playlist not found");
         }
 
-        if (!playlist.owner.equals(req.user.id)) {
+        if (!playlist.owner.equals(req.user._id)) {
             throw new ApiError(403, "You are not authorized to delete this playlist");
         }
 
@@ -144,7 +144,7 @@ const removeNote = asyncHandler( async (req, res, next) => {
             throw new ApiError(404, "Playlist not found");
         }
 
-        if (!playlist.owner.equals(req.user.id)) {
+        if (!playlist.owner.equals(req.user._id)) {
             throw new ApiError(403, "You are not authorized to remove notes from this playlist");
         }
 

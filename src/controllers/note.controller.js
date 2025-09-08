@@ -602,8 +602,7 @@ const createNewVersionNote = asyncHandler( async (req, res) => {
         {
             $push: {
                 noteVersions: {
-                    content: generatedNotes,
-                    id: new mongoose.Types.ObjectId()
+                    content: generatedNotes
                 }
             }
         },
@@ -643,7 +642,7 @@ const deleteNoteVersion = asyncHandler( async (req, res) => {
         throw new ApiError(404, "Note version not found");
     }
 
-    note.noteVersions.pull({id: noteVersionId});
+    note.noteVersions.pull({_id: noteVersionId});
 
     await note.save();
 
