@@ -480,6 +480,31 @@ const getNoteById = asyncHandler(async (req, res) => {
             }
         },
         {
+            $lookup: {
+                from: 'users',
+                localField: 'owner',
+                foreignField: '_id',
+                as: 'owner',
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 1,
+                            username: 1,
+                            fullname: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                owner: {
+                    $first: '$owner'
+                }
+            }
+        },
+        {
             $project: {
                 title: 1,
                 description: 1,
@@ -490,7 +515,8 @@ const getNoteById = asyncHandler(async (req, res) => {
                         cond: ['$$version._id', '$starredNoteId']
                     }
                 },
-                createdAt: 1
+                createdAt: 1,
+                owner: 1,
             }
         },
         {
@@ -499,8 +525,7 @@ const getNoteById = asyncHandler(async (req, res) => {
                     $arrayElemAt: ['$note.content', 0]
                 }
             }
-        }
-    
+        },
     ]);
 
     if(!note || note.length === 0){
