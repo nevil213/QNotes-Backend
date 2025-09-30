@@ -39,11 +39,11 @@ const userSchema = new mongoose.Schema(
         },
         notes: [{
             type: Schema.Types.ObjectId,
-            ref: "Audio"
+            ref: "Note"
         }],
         watchHistory: [{
             type: Schema.Types.ObjectId,
-            ref: "Audio"
+            ref: "Note"
         }],
         savedPlaylist: [{
             type: Schema.Types.ObjectId,

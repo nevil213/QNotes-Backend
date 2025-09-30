@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { decreaseClap, getClaps, increaseClap } from "../controllers/clap.controller.js";
+import { decreaseClap, getClaps, increaseClap, totalClaps } from "../controllers/clap.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
@@ -18,5 +18,6 @@ function customVerifyJWT(req, res, next) {
 router.route("/increment/:noteId").patch(verifyJWT, increaseClap);
 router.route("/decrement/:noteId").patch(verifyJWT, decreaseClap);
 router.route("/get-claps/:noteId").get(customVerifyJWT, getClaps);
+router.route("/total-claps/:userId").get(customVerifyJWT, totalClaps);
 
 export default router

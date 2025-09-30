@@ -639,13 +639,13 @@ const updateUserAvatar = asyncHandler( async (req, res) => {
 });
 
 const updateUserCoverImage = asyncHandler( async (req, res) => {
-    const coverImageLocalPath = req.file?.path;
+    const coverImageBuffer = req.file?.buffer;
 
-    if(!coverImageLocalPath){
+    if(!coverImageBuffer){
         throw new ApiError(400, "Cover Image file is missing");
     }
 
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath, "QNotes/user/coverimage");
+    const coverImage = await uploadOnCloudinary(coverImageBuffer, "QNotes/user/coverimage");
 
     if(!coverImage.url){
         throw new ApiError(400, "Cover Image uploading failed");

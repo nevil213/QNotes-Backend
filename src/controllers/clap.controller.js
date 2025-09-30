@@ -120,8 +120,31 @@ const getClaps = asyncHandler(async (req, res) => {
 
 })
 
+const totalClaps = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    if(!userId){
+        throw new ApiError(400, "user id required");
+    }
+
+    const allUserNotes = await Note.find({owner: userId});
+
+    let noteIds = allUserNotes.map(note => note._id);
+
+    const allClaps = await Clap.find({noteId: {$in: noteIds}});
+    let claps = 0;
+
+    allClaps.forEach(clap => {
+        claps+=clap.claps;
+    });
+    return res.status(200).json(
+        new ApiResponse(200, { totalClaps: claps }, "claps getched successfully")
+    )
+})
+
 export {
     increaseClap,
     decreaseClap,
-    getClaps
+    getClaps,
+    totalClaps
 }

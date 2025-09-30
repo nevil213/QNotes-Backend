@@ -37,7 +37,7 @@ const createNote = asyncHandler( async (req, res) => {
             }
             
             
-            const noteBlob = new Blob([processedBuffer], { type: "audio/mp3" });
+            const noteBlob = new Blob([processedBuffer], { type: "audio/opus" });
             
             const formData = new FormData();
             formData.append("file", noteBlob, "note.mp3");
@@ -51,10 +51,11 @@ const createNote = asyncHandler( async (req, res) => {
                 body: formData
             });
             
-            // console.log(response)
+            console.log(response)
             
             const result = await transcriptResponse.json();
             
+            console.log("result", result);
             if(!result || !result.text){
                 throw new ApiError(400, "audio processing failed");
             }
@@ -199,11 +200,113 @@ const createNote = asyncHandler( async (req, res) => {
                         throw new ApiError(400, "audio file is required");
                     }
                 } catch (error) {
+                    console.error("Error in createNote:", error);
                     throw new ApiError(400, error)
                 }
                 
             })
-            
+
+const createNoteByText = asyncHandler(async (req, res) => {
+    const text = req.body;
+
+    if(!text){
+        throw new ApiError(400, "text required for create notes")
+    }
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                {
+                    "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
+                },
+                {
+                    "role": "user", "content": text
+                }
+            ]
+        })
+    })
+
+    const notesResponse = await response.json();
+
+    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
+        throw new ApiError(501, "something went wrong while creating notes");
+    }
+
+    const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+                { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
+                { "role": "user", "content": notesResponse.choices[0].message.content }
+            ]
+        })
+    });
+    
+    const titleDescriptionResult = await titleDescriptionResponse.json();
+    
+    // console.log(titleDescriptionResult.choices[0].message.content);
+    
+    let title;
+    let description;
+    
+    if(!titleDescriptionResult || !titleDescriptionResult.choices || titleDescriptionResult.choices.length === 0){
+        title = "Untitled";
+        description = "No description available";
+    }
+    else{
+        // Parse the JSON string to extract title and description
+        let parsed;
+        try {
+            // Remove curly braces if present and parse as JSON
+            let content = titleDescriptionResult.choices[0].message.content.trim();
+            if (content.startsWith("{") && content.endsWith("}")) {
+                // Replace single quotes with double quotes if needed
+                content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+                parsed = JSON.parse(content);
+                // console.log(parsed);
+                title = parsed.title || "Untitled";
+                description = parsed.description || "No description available";
+            } else {
+                title = "Untitled";
+                description = "No description available";
+            }
+        } catch (e) {
+            title = "Untitled";
+            description = "No description available";
+            console.log("Error parsing title and description JSON:", e);
+        }
+    }
+    
+    const _id = new mongoose.Types.ObjectId();
+
+    const note = await Note.create({
+        title,
+        description,
+        url: "",
+        owner: req?.user?._id,
+        noteVersions: [{
+            content: notesResponse.choices[0].message.content},
+            _id
+        ],
+        starredNoteId: _id
+    })    
+})
+
+
+// const createNote = asyncHandler(async (req, res) => {
+//     if(!JSON.stringify(isByAudio)){
+//         throw new ApiError("isNyAudio required");
+//     }
+// })
 
 const starNoteVersion = asyncHandler ( async ( req, res ) => {
     const { noteId, noteVersionId } = req.params;
@@ -223,6 +326,8 @@ const starNoteVersion = asyncHandler ( async ( req, res ) => {
     }
 
     // note.noteVersions.map(version => console.log(version._id, noteVersionId, version._id.equals(noteVersionId)))
+
+    console.log(note.noteVersions)
 
     if(!note.noteVersions.some(version => version._id.equals(noteVersionId))){
         throw new ApiError(404, "Note version not found");
@@ -512,7 +617,7 @@ const getNoteById = asyncHandler(async (req, res) => {
                     $filter: {
                         input: '$noteVersions',
                         as: 'version',
-                        cond: ['$$version._id', '$starredNoteId']
+                        cond: { $eq: ['$$version._id', '$starredNoteId'] }
                     }
                 },
                 createdAt: 1,
@@ -622,12 +727,15 @@ const createNewVersionNote = asyncHandler( async (req, res) => {
 
     const generatedNotes = notesResponse.choices[0].message.content;
 
+    const _id = new mongoose.Types.ObjectId()
+
     const newNoteVersion = await Note.findByIdAndUpdate(
         noteId,
         {
             $push: {
                 noteVersions: {
-                    content: generatedNotes
+                    content: generatedNotes,
+                    _id
                 }
             }
         },
@@ -901,5 +1009,6 @@ export {
     getAllNotesByUsername,
     getNoteById,
     updateNoteInfo,
-    getPublicNotes
+    getPublicNotes,
+    createNoteByText
 }

@@ -95,7 +95,9 @@ const updatePlaylistInfo = asyncHandler( async (req, res, next) => {
 
         playlist.name = name || playlist.name;
         playlist.description = description || playlist.description;
-        playlist.isPublic = isPublic || playlist.isPublic;
+        if(isPublic !== undefined && isPublic != playlist.isPublic){
+            playlist.isPublic = isPublic;
+        }
         await playlist.save();
 
         return res.status(200).json(
