@@ -327,9 +327,11 @@ const starNoteVersion = asyncHandler ( async ( req, res ) => {
 
     // note.noteVersions.map(version => console.log(version._id, noteVersionId, version._id.equals(noteVersionId)))
 
-    console.log(note.noteVersions)
+    // console.log(note.noteVersions)
 
-    if(!note.noteVersions.some(version => version._id.equals(noteVersionId))){
+    // print version._id for each noteversion
+
+    if(!note.noteVersions.some(version => version._id && version._id.toString() === String(noteVersionId))){
         throw new ApiError(404, "Note version not found");
     }
 
@@ -365,11 +367,13 @@ const getNoteVersions = asyncHandler (async (req, res) => {
 })
 
 const updateNoteInfo = asyncHandler( async (req, res) => {
-    const { title, description, isPublic } = req.body;
+    const { title, description, isPublic, content } = req.body;
     const { noteId } = req.params;
 
-    if(!(title || description || isPublic.toString())){
-        throw new ApiError(400, "title or description required")
+    // console.log(content);
+
+    if(!(title || description || isPublic.toString() || content)){
+        throw new ApiError(400, "title or description or content required")
     }
 
     if(isPublic && typeof isPublic !== "boolean"){
@@ -388,6 +392,12 @@ const updateNoteInfo = asyncHandler( async (req, res) => {
 
     note.title = title || note.title;
     note.description = description || note.description;
+    
+    content && note.noteVersions.forEach( version => {
+        if(version._id.equals(note.starredNoteId)){
+            version.content = content;
+        }
+    })
 
     if(isPublic.toString()){
         if(isPublic){

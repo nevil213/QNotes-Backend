@@ -245,31 +245,6 @@ const getNotesByPlaylistId = asyncHandler( async (req, res, next) => {
                             }
                         },
                         {
-                            $lookup: {
-                                from: 'users',
-                                localField: 'owner',
-                                foreignField: '_id',
-                                as: 'owner',
-                                pipeline: [
-                                    {
-                                        $project: {
-                                            _id: 1,
-                                            username: 1,
-                                            fullname: 1,
-                                            avatar: 1
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            $addFields: {
-                                owner: {
-                                    $first: '$owner'
-                                }
-                            }
-                        },
-                        {
                             $project: {
                                 _id: 1,
                                 title: 1,
@@ -291,11 +266,36 @@ const getNotesByPlaylistId = asyncHandler( async (req, res, next) => {
                         }
                     ]
                 }
-            }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'owner',
+                    foreignField: '_id',
+                    as: 'owner',
+                    pipeline: [
+                        {
+                            $project: {
+                                _id: 1,
+                                username: 1,
+                                fullname: 1,
+                                avatar: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    owner: {
+                        $first: '$owner'
+                    }
+                }
+            },
         ])
 
         return res.status(200).json(
-            new ApiResponse(200, notes, "Playlist retrieved successfully")
+            new ApiResponse(200, notes[0], "Playlist retrieved successfully")
         );
     } catch (error) {
         next(error);
