@@ -1,5 +1,3 @@
-import * as pdfParse from 'pdf-parse';
-
 function isLikelyText(buf, sampleSize = 1024) {
   const len = Math.min(buf.length, sampleSize);
   let controlChars = 0;
@@ -30,10 +28,19 @@ export async function parseFile(buffer) {
     const header4 = buffer.slice(0, 4).toString('utf8', 0, 4);
     if (header4 === '%PDF') {
       console.log('[Parser] Detected PDF, parsing...');
-      const data = await pdfParse.default(buffer);
-      const text = data && data.text ? data.text.trim() : '';
-      console.log('[Parser] PDF parsed, text length:', text.length);
-      return text;
+      try {
+        // Use CommonJS require instead of import
+        const pdfParse = require('pdf-parse');
+        console.log('[Parser] PDF parser loaded successfully:', typeof pdfParse);
+        
+        const data = await pdfParse(buffer);
+        const text = data && data.text ? data.text.trim() : '';
+        console.log('[Parser] PDF parsed, text length:', text.length);
+        return text;
+      } catch (pdfErr) {
+        console.error('[Parser] PDF parsing error details:', pdfErr);
+        throw new Error(`PDF parsing failed: ${pdfErr.message}`);
+      }
     }
 
     // Only accept plain-text buffers otherwise
