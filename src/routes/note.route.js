@@ -10,7 +10,8 @@ import { createNote,
     getNoteById,
     getAllNotesByUsername,
     getNoteVersions,
-    getPublicNotes} from "../controllers/note.controller.js";
+    getPublicNotes,
+    createNoteByText} from "../controllers/note.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 
@@ -31,6 +32,10 @@ router.route("/create-note").post(
     verifyJWT,
     upload.single("audio"),
     createNote)
+
+router.route("/create-note-by-text").post(
+    verifyJWT,
+    createNoteByText)
 
 router.route("/get-note-versions/:noteId").get(verifyJWT, getNoteVersions);
 

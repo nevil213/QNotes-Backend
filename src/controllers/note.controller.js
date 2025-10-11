@@ -207,7 +207,8 @@ const createNote = asyncHandler( async (req, res) => {
             })
 
 const createNoteByText = asyncHandler(async (req, res) => {
-    const text = req.body;
+    const { text } = req.body;
+    const userId = req?.user?._id;
 
     if(!text){
         throw new ApiError(400, "text required for create notes")
@@ -291,14 +292,44 @@ const createNoteByText = asyncHandler(async (req, res) => {
     const note = await Note.create({
         title,
         description,
-        url: "",
-        owner: req?.user?._id,
+        url: "BYTEXT",
+        owner: userId,
         noteVersions: [{
             content: notesResponse.choices[0].message.content},
             _id
         ],
         starredNoteId: _id
-    })    
+    })
+
+    const transcript = await Transcript.create({
+        noteId: note?._id,
+        text
+    })
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        {
+            $push:{
+                notes: note?._id
+            }
+        },
+        {
+            new: true
+        }
+    ).select("notes")
+
+    if(!user){
+        throw new ApiError(500, "something went wrong while adding note to user notes");
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201,
+            {
+                note,
+                "notes": user.notes
+            },
+            "note created successfully")
+    )
 })
 
 
@@ -671,10 +702,12 @@ const deleteNote = asyncHandler( async (req, res) => {
     await Note.findByIdAndDelete(noteId);
 
     await Transcript.deleteOne({noteId: noteId})
-    
-    let publicId = note.url.split("/").pop().split(".")[0];
 
-    await deleteCloudinaryVideo(AUDIO_PATH + publicId)
+    if(note.url !== "BYTEXT"){
+        let publicId = note.url.split("/").pop().split(".")[0];
+        await deleteCloudinaryVideo(AUDIO_PATH + publicId)
+    }
+    
 
     await User.findByIdAndUpdate(
         req.user._id,
