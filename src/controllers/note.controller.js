@@ -296,13 +296,13 @@ const createNoteByText = asyncHandler(async (req, res) => {
         url: "BYTEXT",
         owner: userId,
         noteVersions: [{
-            content: notesResponse.choices[0].message.content},
+            content: notesResponse.choices[0].message.content,
             _id
-        ],
+        }],
         starredNoteId: _id
     })
 
-    const transcript = await Transcript.create({
+    await Transcript.create({
         noteId: note?._id,
         text
     })
@@ -424,13 +424,13 @@ const createNoteByFile = asyncHandler(async (req, res) => {
         url: "BYTEXT",
         owner: userId,
         noteVersions: [{
-            content: notesResponse.choices[0].message.content},
+            content: notesResponse.choices[0].message.content,
             _id
-        ],
+        }],
         starredNoteId: _id
     })
 
-    const transcript = await Transcript.create({
+    await Transcript.create({
         noteId: note?._id,
         text
     })
