@@ -9,6 +9,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { User } from "../models/user.model.js";
 import { AUDIO_PATH } from "../constants.js";
+import { parseFile } from "../utils/parser.js";
 
 // create Note
 const createNote = asyncHandler( async (req, res) => {
@@ -207,7 +208,8 @@ const createNote = asyncHandler( async (req, res) => {
             })
 
 const createNoteByText = asyncHandler(async (req, res) => {
-    const text = req.body;
+    const { text } = req.body;
+    const userId = req?.user?._id;
 
     if(!text){
         throw new ApiError(400, "text required for create notes")
@@ -291,14 +293,172 @@ const createNoteByText = asyncHandler(async (req, res) => {
     const note = await Note.create({
         title,
         description,
-        url: "",
-        owner: req?.user?._id,
+        url: "BYTEXT",
+        owner: userId,
         noteVersions: [{
             content: notesResponse.choices[0].message.content},
             _id
         ],
         starredNoteId: _id
-    })    
+    })
+
+    const transcript = await Transcript.create({
+        noteId: note?._id,
+        text
+    })
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        {
+            $push:{
+                notes: note?._id
+            }
+        },
+        {
+            new: true
+        }
+    ).select("notes")
+
+    if(!user){
+        throw new ApiError(500, "something went wrong while adding note to user notes");
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201,
+            {
+                note,
+                "notes": user.notes
+            },
+            "note created successfully")
+    )
+})
+
+const createNoteByFile = asyncHandler(async (req, res) => {
+    const fileBuffer = req.file?.buffer;
+    const userId = req?.user?._id;
+
+    const text = await parseFile(fileBuffer);
+
+    if(!text){
+        throw new ApiError(400, "failed to parse file for create notes")
+    }
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+                {
+                    "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
+                },
+                {
+                    "role": "user", "content": text
+                }
+            ]
+        })
+    })
+
+    const notesResponse = await response.json();
+
+    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
+        throw new ApiError(501, "something went wrong while creating notes");
+    }
+
+    const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
+        },
+        body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+                { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
+                { "role": "user", "content": notesResponse.choices[0].message.content }
+            ]
+        })
+    });
+    
+    const titleDescriptionResult = await titleDescriptionResponse.json();
+    
+    // console.log(titleDescriptionResult.choices[0].message.content);
+    
+    let title;
+    let description;
+    
+    if(!titleDescriptionResult || !titleDescriptionResult.choices || titleDescriptionResult.choices.length === 0){
+        title = "Untitled";
+        description = "No description available";
+    }
+    else{
+        // Parse the JSON string to extract title and description
+        let parsed;
+        try {
+            // Remove curly braces if present and parse as JSON
+            let content = titleDescriptionResult.choices[0].message.content.trim();
+            if (content.startsWith("{") && content.endsWith("}")) {
+                // Replace single quotes with double quotes if needed
+                content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+                parsed = JSON.parse(content);
+                // console.log(parsed);
+                title = parsed.title || "Untitled";
+                description = parsed.description || "No description available";
+            } else {
+                title = "Untitled";
+                description = "No description available";
+            }
+        } catch (e) {
+            title = "Untitled";
+            description = "No description available";
+            console.log("Error parsing title and description JSON:", e);
+        }
+    }
+    
+    const _id = new mongoose.Types.ObjectId();
+
+    const note = await Note.create({
+        title,
+        description,
+        url: "BYTEXT",
+        owner: userId,
+        noteVersions: [{
+            content: notesResponse.choices[0].message.content},
+            _id
+        ],
+        starredNoteId: _id
+    })
+
+    const transcript = await Transcript.create({
+        noteId: note?._id,
+        text
+    })
+
+    const user = await User.findByIdAndUpdate(
+        userId,
+        {
+            $push:{
+                notes: note?._id
+            }
+        },
+        {
+            new: true
+        }
+    ).select("notes")
+
+    if(!user){
+        throw new ApiError(500, "something went wrong while adding note to user notes");
+    }
+
+    return res.status(201).json(
+        new ApiResponse(201,
+            {
+                note,
+                "notes": user.notes
+            },
+            "note created successfully")
+    )
 })
 
 
@@ -671,10 +831,12 @@ const deleteNote = asyncHandler( async (req, res) => {
     await Note.findByIdAndDelete(noteId);
 
     await Transcript.deleteOne({noteId: noteId})
-    
-    let publicId = note.url.split("/").pop().split(".")[0];
 
-    await deleteCloudinaryVideo(AUDIO_PATH + publicId)
+    if(note.url !== "BYTEXT"){
+        let publicId = note.url.split("/").pop().split(".")[0];
+        await deleteCloudinaryVideo(AUDIO_PATH + publicId)
+    }
+    
 
     await User.findByIdAndUpdate(
         req.user._id,
@@ -1020,5 +1182,6 @@ export {
     getNoteById,
     updateNoteInfo,
     getPublicNotes,
-    createNoteByText
+    createNoteByText,
+    createNoteByFile
 }
