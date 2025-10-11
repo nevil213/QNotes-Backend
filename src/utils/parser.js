@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import * as pdfParse from 'pdf-parse';
 
 function isLikelyText(buf, sampleSize = 1024) {
   const len = Math.min(buf.length, sampleSize);
