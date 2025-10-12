@@ -52,11 +52,11 @@ const createNote = asyncHandler( async (req, res) => {
                 body: formData
             });
             
-            console.log(response)
+            // console.log(response)
             
             const result = await transcriptResponse.json();
             
-            console.log("result", result);
+            // console.log("result", result);
             if(!result || !result.text){
                 throw new ApiError(400, "audio processing failed");
             }
@@ -91,7 +91,7 @@ const createNote = asyncHandler( async (req, res) => {
 
                 notesResult = await notesResponse.json();
 
-                console.log(`Trying model for notes: ${model}`, notesResult);
+                // console.log(`Trying model for notes: ${model}`, notesResult);
 
                 if (!notesResult.error) {
                     notesModelUsed = model;
@@ -99,7 +99,7 @@ const createNote = asyncHandler( async (req, res) => {
                 }
 
                 if (notesResult.error?.code === 'rate_limit_exceeded') {
-                    console.log(`Rate limit exceeded for ${model}, trying next model...`);
+                    // console.log(`Rate limit exceeded for ${model}, trying next model...`);
                     continue;
                 } else {
                     throw new ApiError(400, `API error: ${notesResult.error?.message || 'Unknown error'}`);
@@ -140,7 +140,7 @@ const createNote = asyncHandler( async (req, res) => {
 
                 titleDescriptionResult = await titleDescriptionResponse.json();
 
-                console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+                // console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
 
                 if (!titleDescriptionResult.error) {
                     titleModelUsed = model;
@@ -293,7 +293,7 @@ const createNoteByText = asyncHandler(async (req, res) => {
 
         notesResponse = await response.json();
 
-        console.log(`Trying model for notes: ${model}`, notesResponse);
+        // console.log(`Trying model for notes: ${model}`, notesResponse);
 
         if (!notesResponse.error) {
             modelUsed = model;
@@ -301,7 +301,7 @@ const createNoteByText = asyncHandler(async (req, res) => {
         }
 
         if (notesResponse.error?.code === 'rate_limit_exceeded') {
-            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            // console.log(`Rate limit exceeded for ${model}, trying next model...`);
             continue;
         } else {
             throw new ApiError(501, `API error: ${notesResponse.error?.message || 'Unknown error'}`);
@@ -342,7 +342,7 @@ const createNoteByText = asyncHandler(async (req, res) => {
 
         titleDescriptionResult = await titleDescriptionResponse.json();
 
-        console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+        // console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
 
         if (!titleDescriptionResult.error) {
             titleModelUsed = model;
@@ -487,7 +487,7 @@ const createNoteByFile = asyncHandler(async (req, res) => {
 
         notesResponse = await response.json();
 
-        console.log(`Trying model: ${model}`, notesResponse);
+        // console.log(`Trying model: ${model}`, notesResponse);
 
         if (!notesResponse.error) {
             modelUsed = model;
@@ -536,7 +536,7 @@ const createNoteByFile = asyncHandler(async (req, res) => {
 
         titleDescriptionResult = await titleDescriptionResponse.json();
 
-        console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+        // console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
 
         if (!titleDescriptionResult.error) {
             titleModelUsed = model;
@@ -565,13 +565,13 @@ const createNoteByFile = asyncHandler(async (req, res) => {
         try {
             // Remove curly braces if present and parse as JSON
             let content = titleDescriptionResult.choices[0].message.content.trim();
-            console.log(content)
+            // console.log(content)
             if (content.startsWith("{") && content.endsWith("}")) {
                 // Replace single quotes with double quotes if needed
                 // content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
                 // console.log(content)
                 parsed = JSON.parse(content);
-                console.log(parsed);
+                // console.log(parsed);
                 title = parsed.title || "Untitled";
                 description = parsed.description || "No description available";
             } else {
@@ -1074,7 +1074,7 @@ const createNewVersionNote = asyncHandler( async (req, res) => {
 
         notesResponse = await response.json();
 
-        console.log(`Trying model for new version: ${model}`, notesResponse);
+        // console.log(`Trying model for new version: ${model}`, notesResponse);
 
         if (!notesResponse.error) {
             modelUsed = model;
@@ -1158,8 +1158,6 @@ const getPublicNotes = asyncHandler(async (req, res) => {
     const sortBy = req.query.sortBy || 'newest';
     const filterBy = req.query.filterBy || 'all';
     const search = req.query.search || '';
-
-    console.log("search", search)
     
     const skip = (page - 1) * limit;
     
