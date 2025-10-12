@@ -61,45 +61,100 @@ const createNote = asyncHandler( async (req, res) => {
                 throw new ApiError(400, "audio processing failed");
             }
             
-            const notesResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { "role": "system", "content": "You are a concise note-maker, you have the knowledge about the topic explained in the transcript and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost whole the transcript. no need of your wordings like <here is the note or something like that>" },
-                        { "role": "user", "content": result.text }
-                    ]
-                })
-            });
-            
-            
-            const notesResult = await notesResponse.json();
+            const models = [
+                'openai/gpt-oss-120b',
+                'openai/gpt-oss-20b',
+                'llama-3.3-70b-versatile',
+                'moonshotai/kimi-k2-instruct-0905',
+                'llama-3.1-8b-instant',
+                'meta-llama/llama-4-maverick-17b-128e-instruct'
+            ];
+
+            let notesResult;
+            let notesModelUsed;
+
+            for (const model of models) {
+                const notesResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { "role": "system", "content": "You are a concise note-maker, you have the knowledge about the topic explained in the transcript and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost whole the transcript. no need of your wordings like <here is the note or something like that>" },
+                            { "role": "user", "content": result.text }
+                        ]
+                    })
+                });
+
+                notesResult = await notesResponse.json();
+
+                console.log(`Trying model for notes: ${model}`, notesResult);
+
+                if (!notesResult.error) {
+                    notesModelUsed = model;
+                    break;
+                }
+
+                if (notesResult.error?.code === 'rate_limit_exceeded') {
+                    console.log(`Rate limit exceeded for ${model}, trying next model...`);
+                    continue;
+                } else {
+                    throw new ApiError(400, `API error: ${notesResult.error?.message || 'Unknown error'}`);
+                }
+            }
             
             if(!notesResult || !notesResult.choices || notesResult.choices.length === 0){
-                throw new ApiError(400, "notes generation failed");
+                throw new ApiError(400, "notes generation failed - all models failed or rate limited");
             }
-            // console.log(notesResult.choices[0].message);
             
-            const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-                method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-                },
-                body: JSON.stringify({
-                    model: "llama-3.3-70b-versatile",
-                    messages: [
-                        { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
-                        { "role": "user", "content": notesResult.choices[0].message.content }
-                    ]
-                })
-            });
-            
-            const titleDescriptionResult = await titleDescriptionResponse.json();
-            
-            // console.log(titleDescriptionResult.choices[0].message.content);
+            let titleDescriptionResult;
+            let titleModelUsed;
+
+            const modelsfortitle = [
+                'moonshotai/kimi-k2-instruct',
+                'moonshotai/kimi-k2-instruct-0905',
+                'llama-3.1-8b-instant',
+                'llama-3.3-70b-versatile',
+                'meta-llama/llama-4-maverick-17b-128e-instruct',
+                'groq/compound'
+            ];
+
+            for (const model of modelsfortitle) {
+                const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [
+                            { "role": "system", "content": 'You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {"title": <title inside double quotes>, "description": <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>' },
+                            { "role": "user", "content": notesResult.choices[0].message.content }
+                        ]
+                    })
+                });
+
+                titleDescriptionResult = await titleDescriptionResponse.json();
+
+                console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+
+                if (!titleDescriptionResult.error) {
+                    titleModelUsed = model;
+                    break;
+                }
+
+                if (titleDescriptionResult.error?.code === 'rate_limit_exceeded') {
+                    console.log(`Rate limit exceeded for ${model}, trying next model...`);
+                    continue;
+                } else {
+                    console.log(`API error for title/description with ${model}, trying next model...`);
+                    continue;
+                }
+            }
             
             let title;
             let description;
@@ -115,10 +170,7 @@ const createNote = asyncHandler( async (req, res) => {
                     // Remove curly braces if present and parse as JSON
                     let content = titleDescriptionResult.choices[0].message.content.trim();
                     if (content.startsWith("{") && content.endsWith("}")) {
-                        // Replace single quotes with double quotes if needed
-                        content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
                         parsed = JSON.parse(content);
-                        // console.log(parsed);
                         title = parsed.title || "Untitled";
                         description = parsed.description || "No description available";
                     } else {
@@ -132,80 +184,72 @@ const createNote = asyncHandler( async (req, res) => {
                 }
             }
             
-            // if(result && result.text){
-                //     return res.status(201).json(
-                    //         new ApiResponse(201, result.text, "audio proccessed successfully")
-                    //     )
-                    // }            
-                    
-                    // console.log(title, description, response?.url);
-
-                    const _id = new mongoose.Types.ObjectId()
-                    
-                    const note = await Note.create({
-                        owner: userId,
-                        url: response?.url,
-                        title,
-                        description,
-                        noteVersions: [
-                            {
-                                content: notesResult.choices[0].message.content,
-                                _id
-                            }
-                        ],
-                        starredNoteId: _id
-                    });
-                    
-                    if(!note){
-                        throw new ApiError(500, "something went wrong while creating note");
+            const _id = new mongoose.Types.ObjectId()
+            
+            const note = await Note.create({
+                owner: userId,
+                url: response?.url,
+                title,
+                description,
+                noteVersions: [
+                    {
+                        content: notesResult.choices[0].message.content,
+                        _id
                     }
-                    
-                    const transcript = await Transcript.create({
-                        noteId: note?._id,
-                        text: result.text
-                    });
-                    
-                    if(!transcript){
-                        throw new ApiError(500, "something went wrong while creating transcript");
+                ],
+                starredNoteId: _id
+            });
+            
+            if(!note){
+                throw new ApiError(500, "something went wrong while creating note");
+            }
+            
+            const transcript = await Transcript.create({
+                noteId: note?._id,
+                text: result.text
+            });
+            
+            if(!transcript){
+                throw new ApiError(500, "something went wrong while creating transcript");
+            }
+            
+            const user = await User.findByIdAndUpdate(
+                userId,
+                {
+                    $push: {
+                        notes: note._id
                     }
-                    
-                    const user = await User.findByIdAndUpdate(
-                        userId,
-                        {
-                            $push: {
-                                notes: note._id
-                            }
-                        },
-                        {
-                            new: true
-                        }
-                    ).select("notes");
-                    
-                    if(!user){
-                        throw new ApiError(500, "something went wrong while adding note to user notes");
-                    }
-                    
-                    return res
-                    .status(201)
-                    .json(
-                        new ApiResponse(201,
-                            {
-                                "url": response?.url,
-                                note,
-                                "notes": user.notes
-                            },
-                            "note created successfully")
-                        )
-                    }
-                    else{
-                        throw new ApiError(400, "audio file is required");
-                    }
-                } catch (error) {
-                    console.error("Error in createNote:", error);
-                    throw new ApiError(400, error)
+                },
+                {
+                    new: true
                 }
-                
-            })
+            ).select("notes");
+            
+            if(!user){
+                throw new ApiError(500, "something went wrong while adding note to user notes");
+            }
+            
+            return res
+            .status(201)
+            .json(
+                new ApiResponse(201,
+                    {
+                        "url": response?.url,
+                        note,
+                        "notes": user.notes
+                    },
+                    "note created successfully")
+            )
+        }
+        else{
+            throw new ApiError(400, "audio file is required");
+        }
+    } catch (error) {
+        console.error("Error in createNote:", error);
+        throw new ApiError(400, error)
+    }
+    
+})
 
 const createNoteByText = asyncHandler(async (req, res) => {
     const { text } = req.body;
@@ -215,47 +259,104 @@ const createNoteByText = asyncHandler(async (req, res) => {
         throw new ApiError(400, "text required for create notes")
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-                {
-                    "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
-                },
-                {
-                    "role": "user", "content": text
-                }
-            ]
-        })
-    })
+    const models = [
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'llama-3.3-70b-versatile',
+        'moonshotai/kimi-k2-instruct-0905',
+        'llama-3.1-8b-instant',
+        'meta-llama/llama-4-maverick-17b-128e-instruct'
+    ];
 
-    const notesResponse = await response.json();
+    let notesResponse;
+    let modelUsed;
 
-    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
-        throw new ApiError(501, "something went wrong while creating notes");
+    for (const model of models) {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    {
+                        "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
+                    },
+                    {
+                        "role": "user", "content": text
+                    }
+                ]
+            })
+        });
+
+        notesResponse = await response.json();
+
+        console.log(`Trying model for notes: ${model}`, notesResponse);
+
+        if (!notesResponse.error) {
+            modelUsed = model;
+            break;
+        }
+
+        if (notesResponse.error?.code === 'rate_limit_exceeded') {
+            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            continue;
+        } else {
+            throw new ApiError(501, `API error: ${notesResponse.error?.message || 'Unknown error'}`);
+        }
     }
 
-    const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-                { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
-                { "role": "user", "content": notesResponse.choices[0].message.content }
-            ]
-        })
-    });
-    
-    const titleDescriptionResult = await titleDescriptionResponse.json();
-    
-    // console.log(titleDescriptionResult.choices[0].message.content);
+    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
+        throw new ApiError(501, "something went wrong while creating notes - all models failed or rate limited");
+    }
+
+    const modelsfortitle = [
+        'moonshotai/kimi-k2-instruct',
+        'moonshotai/kimi-k2-instruct-0905',
+        'llama-3.1-8b-instant',
+        'llama-3.3-70b-versatile',
+        'meta-llama/llama-4-maverick-17b-128e-instruct',
+        'groq/compound'
+    ];
+
+    let titleDescriptionResult;
+    let titleModelUsed;
+
+    for (const model of modelsfortitle) {
+        const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
+                    { "role": "user", "content": notesResponse.choices[0].message.content }
+                ]
+            })
+        });
+
+        titleDescriptionResult = await titleDescriptionResponse.json();
+
+        console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+
+        if (!titleDescriptionResult.error) {
+            titleModelUsed = model;
+            break;
+        }
+
+        if (titleDescriptionResult.error?.code === 'rate_limit_exceeded') {
+            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            continue;
+        } else {
+            console.log(`API error for title/description with ${model}, trying next model...`);
+            continue;
+        }
+    }
     
     let title;
     let description;
@@ -271,10 +372,7 @@ const createNoteByText = asyncHandler(async (req, res) => {
             // Remove curly braces if present and parse as JSON
             let content = titleDescriptionResult.choices[0].message.content.trim();
             if (content.startsWith("{") && content.endsWith("}")) {
-                // Replace single quotes with double quotes if needed
-                content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
                 parsed = JSON.parse(content);
-                // console.log(parsed);
                 title = parsed.title || "Untitled";
                 description = parsed.description || "No description available";
             } else {
@@ -288,42 +386,54 @@ const createNoteByText = asyncHandler(async (req, res) => {
         }
     }
     
-    const _id = new mongoose.Types.ObjectId();
-
+    const _id = new mongoose.Types.ObjectId()
+    
     const note = await Note.create({
+        owner: userId,
+        url: "BYTEXT",
         title,
         description,
-        url: "BYTEXT",
-        owner: userId,
-        noteVersions: [{
-            content: notesResponse.choices[0].message.content,
-            _id
-        }],
+        noteVersions: [
+            {
+                content: notesResponse.choices[0].message.content,
+                _id
+            }
+        ],
         starredNoteId: _id
-    })
-
-    await Transcript.create({
+    });
+    
+    if(!note){
+        throw new ApiError(500, "something went wrong while creating note");
+    }
+    
+    const transcript = await Transcript.create({
         noteId: note?._id,
-        text
-    })
-
+        text: text
+    });
+    
+    if(!transcript){
+        throw new ApiError(500, "something went wrong while creating transcript");
+    }
+    
     const user = await User.findByIdAndUpdate(
         userId,
         {
-            $push:{
-                notes: note?._id
+            $push: {
+                notes: note._id
             }
         },
         {
             new: true
         }
-    ).select("notes")
-
+    ).select("notes");
+    
     if(!user){
         throw new ApiError(500, "something went wrong while adding note to user notes");
     }
-
-    return res.status(201).json(
+    
+    return res
+    .status(201)
+    .json(
         new ApiResponse(201,
             {
                 note,
@@ -343,47 +453,104 @@ const createNoteByFile = asyncHandler(async (req, res) => {
         throw new ApiError(400, "failed to parse file for create notes")
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
-            messages: [
-                {
-                    "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
-                },
-                {
-                    "role": "user", "content": text
-                }
-            ]
-        })
-    })
+    const models = [
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'llama-3.3-70b-versatile',
+        'moonshotai/kimi-k2-instruct-0905',
+        'llama-3.1-8b-instant',
+        'meta-llama/llama-4-maverick-17b-128e-instruct'
+    ];
 
-    const notesResponse = await response.json();
+    let notesResponse;
+    let modelUsed;
 
-    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
-        throw new ApiError(501, "something went wrong while creating notes");
+    for (const model of models) {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    {
+                        "role": "system", "content": "You are concise note maker, you have the knowledge about the the text written and also you can explain it well. Your job is to use your existing knowledge and this provided text to make a well detailed notes in simple language in strictly english language which includes almost the whole text. no need of your wordings like <here is the note or something like that>"
+                    },
+                    {
+                        "role": "user", "content": text
+                    }
+                ]
+            })
+        });
+
+        notesResponse = await response.json();
+
+        console.log(`Trying model: ${model}`, notesResponse);
+
+        if (!notesResponse.error) {
+            modelUsed = model;
+            break;
+        }
+
+        if (notesResponse.error?.code === 'rate_limit_exceeded') {
+            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            continue;
+        } else {
+            throw new ApiError(501, `API error: ${notesResponse.error?.message || 'Unknown error'}`);
+        }
     }
 
-    const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-                { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
-                { "role": "user", "content": notesResponse.choices[0].message.content }
-            ]
-        })
-    });
-    
-    const titleDescriptionResult = await titleDescriptionResponse.json();
-    
-    // console.log(titleDescriptionResult.choices[0].message.content);
+    if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
+        throw new ApiError(501, "something went wrong while creating notes - all models failed or rate limited");
+    }
+
+    const modelsfortitle = [
+        'moonshotai/kimi-k2-instruct',
+        'moonshotai/kimi-k2-instruct-0905',
+        'llama-3.1-8b-instant',
+        'llama-3.3-70b-versatile',
+        'meta-llama/llama-4-maverick-17b-128e-instruct',
+        'groq/compound'
+    ];
+
+    let titleDescriptionResult;
+    let titleModelUsed;
+
+    for (const model of modelsfortitle) {
+        const titleDescriptionResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { "role": "system", "content": "You are a title and description maker. Your job is to create title and short 1 line descriptions based on the given notes. the response should be in this json format only. {title: <title inside double quotes>, description: <description inside double quotes>}. nothing should be there in the response other than this format, not your wordings like <here is the title and description>" },
+                    { "role": "user", "content": notesResponse.choices[0].message.content }
+                ]
+            })
+        });
+
+        titleDescriptionResult = await titleDescriptionResponse.json();
+
+        console.log(`Trying model for title/description: ${model}`, titleDescriptionResult);
+
+        if (!titleDescriptionResult.error) {
+            titleModelUsed = model;
+            break;
+        }
+
+        if (titleDescriptionResult.error?.code === 'rate_limit_exceeded') {
+            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            continue;
+        } else {
+            console.log(`API error for title/description with ${model}, trying next model...`);
+            continue;
+        }
+    }
     
     let title;
     let description;
@@ -398,11 +565,13 @@ const createNoteByFile = asyncHandler(async (req, res) => {
         try {
             // Remove curly braces if present and parse as JSON
             let content = titleDescriptionResult.choices[0].message.content.trim();
+            console.log(content)
             if (content.startsWith("{") && content.endsWith("}")) {
                 // Replace single quotes with double quotes if needed
-                content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+                // content = content.replace(/(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '"$2":');
+                // console.log(content)
                 parsed = JSON.parse(content);
-                // console.log(parsed);
+                console.log(parsed);
                 title = parsed.title || "Untitled";
                 description = parsed.description || "No description available";
             } else {
@@ -875,26 +1044,53 @@ const createNewVersionNote = asyncHandler( async (req, res) => {
     const title = note.title;
     const description = note.description;
 
-    let notesResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-        },
-        body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-                { "role": "system", "content": `You are a concise note-maker, you have the knowledge about the ${title} regarding ${description} and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost the whole transcript. no need of your wordings like <here is the note or something like that>` },
-                { "role": "user", "content": transcript.text }
-            ]
-        })
-    });
+    const models = [
+        'openai/gpt-oss-120b',
+        'openai/gpt-oss-20b',
+        'llama-3.3-70b-versatile',
+        'moonshotai/kimi-k2-instruct-0905',
+        'llama-3.1-8b-instant',
+        'meta-llama/llama-4-maverick-17b-128e-instruct'
+    ];
 
-    notesResponse = await notesResponse.json();
+    let notesResponse;
+    let modelUsed;
 
-    // console.log(notesResponse);
+    for (const model of models) {
+        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                model: model,
+                messages: [
+                    { "role": "system", "content": `You are a concise note-maker, you have the knowledge about the ${title} regarding ${description} and also you can explain it well. Your job is to use your existing knowledge and this provided transcript to make a well detailed notes in simple language in strictly english language which includes almost the whole transcript. no need of your wordings like <here is the note or something like that>` },
+                    { "role": "user", "content": transcript.text }
+                ]
+            })
+        });
+
+        notesResponse = await response.json();
+
+        console.log(`Trying model for new version: ${model}`, notesResponse);
+
+        if (!notesResponse.error) {
+            modelUsed = model;
+            break;
+        }
+
+        if (notesResponse.error?.code === 'rate_limit_exceeded') {
+            console.log(`Rate limit exceeded for ${model}, trying next model...`);
+            continue;
+        } else {
+            throw new ApiError(500, `API error: ${notesResponse.error?.message || 'Unknown error'}`);
+        }
+    }
 
     if(!notesResponse || !notesResponse.choices || notesResponse.choices.length === 0){
-        throw new ApiError(500, "something went wrong while generating notes");
+        throw new ApiError(500, "something went wrong while generating notes - all models failed or rate limited");
     }
 
     const generatedNotes = notesResponse.choices[0].message.content;
