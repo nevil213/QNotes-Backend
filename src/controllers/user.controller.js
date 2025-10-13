@@ -416,15 +416,24 @@ const loginUser = asyncHandler( async (req, res) => {
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
-    const options = {
+    const optionsAccessToken = {
         httpOnly: true,
-        secure: true
+        secure: true,
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000
+    }
+
+    const optionsRefreshToken = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 10 * 24 * 60 * 60 * 1000
     }
 
     return res
     .status(200)
-    .cookie("accessToken", accessToken, options)
-    .cookie("refreshToken", refreshToken, options)
+    .cookie("accessToken", accessToken, optionsAccessToken)
+    .cookie("refreshToken", refreshToken, optionsRefreshToken)
     .json(
         new ApiResponse(
             200,
@@ -453,12 +462,21 @@ const logOutUser = asyncHandler( async (req, res, next) => {
         }
     )
 
-    const options = {
+    const optionsAccessToken = {
         httpOnly: true,
-        secure: true
+        secure: true,
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000
     }
 
-    return res.status(200).clearCookie("accessToken", options).clearCookie("refreshToken", options).json(
+    const optionsRefreshToken = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 10 * 24 * 60 * 60 * 1000
+    }
+
+    return res.status(200).clearCookie("accessToken", optionsAccessToken).clearCookie("refreshToken", optionsRefreshToken).json(
         new ApiResponse(200, "", "user logged out successfully")
     )
 })
@@ -486,15 +504,24 @@ const refreshAccessToken = asyncHandler ( async (req, res, next) => {
     
         const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
     
-        const options = {
-            httpOnly: true,
-            secure: true
-        }
+    const optionsAccessToken = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 24 * 60 * 60 * 1000
+    }
+
+    const optionsRefreshToken = {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 10 * 24 * 60 * 60 * 1000
+    }
     
         return res
         .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
+        .cookie("accessToken", accessToken, optionsAccessToken)
+        .cookie("refreshToken", refreshToken, optionsRefreshToken)
         .json(
             new ApiResponse(
                 200,
@@ -578,12 +605,14 @@ try {
     
         const accessToken = await user.generateAccessToken();
     
-        const options = {
+        const optionsAccessToken = {
             httpOnly: true,
-            secure: true
+            secure: true,
+            sameSite: 'none',
+            maxAge: 24 * 60 * 60 * 1000
         }
     
-        return res.status(200).cookie("accessToken", accessToken, options ).json(
+        return res.status(200).cookie("accessToken", accessToken, optionsAccessToken ).json(
             new ApiResponse(
                 200,
                 user,
