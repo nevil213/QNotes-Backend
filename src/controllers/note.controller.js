@@ -961,6 +961,7 @@ const getNoteById = asyncHandler(async (req, res) => {
                 },
                 createdAt: 1,
                 owner: 1,
+                isPublic: 1
             }
         },
         {
