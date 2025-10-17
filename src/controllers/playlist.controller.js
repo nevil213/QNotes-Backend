@@ -258,6 +258,7 @@ const getNotesByPlaylistId = asyncHandler( async (req, res, next) => {
                                 //         }
                                 //     }
                                 // },
+                                isPublic: 1,
                                 createdAt: 1,
                                 // owner: {
                                 //     $arrayElemAt: ["$owner", 0]
